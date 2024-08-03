@@ -1,5 +1,5 @@
 use rustyline::completion::{Completer, Pair};
-use use rustyline::{Context, Helper};
+use rustyline::{Context, Helper};
 use rustyline::highlight::Highlighter;
 use rustyline::hint::Hinter;
 use rustyline::validate::Validator;
