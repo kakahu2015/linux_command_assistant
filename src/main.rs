@@ -143,8 +143,9 @@ impl LinuxCommandAssistant {
         println!("Ask me anything about Linux commands!");
 
         //let mut rl = Editor::<()>::new()?;
-        let mut rl = Editor::with_config(rustyline::Config::builder().completion_type(rustyline::CompletionType::List).build());
-rl.set_helper(Some(LinuxCommandCompleter));
+        //let mut rl = Editor::with_config(rustyline::Config::builder().completion_type(rustyline::CompletionType::List).build());
+        let mut rl = Editor::new()?;
+        rl.set_helper(Some(LinuxCommandCompleter));
         loop {
             let readline = rl.readline("linux-assistant> ");
             match readline {
