@@ -152,84 +152,63 @@ impl LinuxCommandAssistant {
     }
 //////////////////////
    
- async fn run(&mut self) -> Result<()> {
-        println!("Welcome to Linux Command Assistant.");
-        println!("Type 'exit' to quit. Use '!' prefix to execute local Linux commands.");
-        println!("Ask me anything about Linux commands!");
+async fn run(&mut self) -> Result<()> {
+    println!("Welcome to Linux Command Assistant.");
+    println!("Type 'exit' to quit. Use '!' prefix to execute local Linux commands.");
+    println!("Ask me anything about Linux commands!");
 
-        let config = RustylineConfig::builder()
-            .completion_type(rustyline::CompletionType::List)
-            .build();
-        let mut rl = Editor::with_config(config)?;
-        rl.set_helper(Some(LinuxCommandCompleter));
+    let mut rl = Editor::<LinuxCommandCompleter>::new()?;
+    rl.set_helper(Some(LinuxCommandCompleter));
+    rl.set_completion_type(CompletionType::List);
 
-        loop {
-            let readline = rl.readline("linux-assistant> ");
-            match readline {
-                Ok(line) => {
-                    if line.eq_ignore_ascii_case("exit") {
-                        break;
+    loop {
+        let readline = rl.readline("linux-assistant> ");
+        match readline {
+            Ok(line) => {
+                if line.eq_ignore_ascii_case("exit") {
+                    break;
+                }
+
+                if line.starts_with('!') {
+                    let command = &line[1..];
+                    if command.trim().is_empty() {
+                        continue;
                     }
-
-                    if line.starts_with('!') {
-                        let command = &line[1..];
-                        if command.trim().is_empty() {
-                            continue;
+                    
+                    match self.execute_command(command) {
+                        Ok(output) => {
+                            println!("Command output:\n{}", output);
+                            self.add_to_recent_interactions(format!("Command: {}\nOutput: {}", command, output));
                         }
-                        
-                        // 处理命令补全
-                        let completions = self.get_completions(&line);
-                        if !completions.is_empty() {
-                            println!("Possible completions:");
-                            for completion in completions {
-                                println!("  {}", completion.display);
-                            }
-                            continue;
-                        }
-
-                        match self.execute_command(command) {
-                            Ok(output) => {
-                                println!("Command output:\n{}", output);
-                                self.add_to_recent_interactions(format!("Command: {}\nOutput: {}", command, output));
-                            }
-                            Err(e) => println!("Error executing command: {}", e),
-                        }
-                    } else {
-                        match self.get_ai_response(&line).await {
-                            Ok(response) => {
-                                println!("Assistant: {}", response);
-                                self.update_context(&line, &response);
-                                self.add_to_recent_interactions(format!("User: {}\nAssistant: {}", line, response));
-                            }
-                            Err(e) => println!("Error getting AI response: {}", e),
-                        }
+                        Err(e) => println!("Error executing command: {}", e),
                     }
-                }
-                Err(ReadlineError::Interrupted) => {
-                    println!("CTRL-C");
-                    break;
-                }
-                Err(ReadlineError::Eof) => {
-                    println!("CTRL-D");
-                    break;
-                }
-                Err(err) => {
-                    println!("Error: {:?}", err);
-                    break;
+                } else {
+                    match self.get_ai_response(&line).await {
+                        Ok(response) => {
+                            println!("Assistant: {}", response);
+                            self.update_context(&line, &response);
+                            self.add_to_recent_interactions(format!("User: {}\nAssistant: {}", line, response));
+                        }
+                        Err(e) => println!("Error getting AI response: {}", e),
+                    }
                 }
             }
+            Err(ReadlineError::Interrupted) => {
+                println!("CTRL-C");
+                break;
+            }
+            Err(ReadlineError::Eof) => {
+                println!("CTRL-D");
+                break;
+            }
+            Err(err) => {
+                println!("Error: {:?}", err);
+                break;
+            }
         }
-        Ok(())
     }
-
-    fn get_completions(&self, line: &str) -> Vec<Pair> {
-        let helper = LinuxCommandCompleter;
-        if let Ok((_, completions)) = helper.complete(line, line.len(), &rustyline::Context::new()) {
-            completions
-        } else {
-            Vec::new()
-        }
-    }
+    Ok(())
+}
 ////////////////////
 }
 
