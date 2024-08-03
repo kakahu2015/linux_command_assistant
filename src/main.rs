@@ -147,16 +147,16 @@ impl LinuxCommandAssistant {
             self.recent_interactions.pop_front();
         }
     }
-
-    async fn run(&mut self) -> Result<()> {
+//////////////////////
+        async fn run(&mut self) -> Result<()> {
         println!("Welcome to Linux Command Assistant.");
         println!("Type 'exit' to quit. Use '!' prefix to execute local Linux commands.");
         println!("Ask me anything about Linux commands!");
 
-        //let mut rl = Editor::<()>::new()?;
-        //let mut rl = Editor::with_config(rustyline::Config::builder().completion_type(rustyline::CompletionType::List).build());
         let mut rl = Editor::new()?;
         rl.set_helper(Some(LinuxCommandCompleter));
+        rl.set_completion_type(CompletionType::List);
+
         loop {
             let readline = rl.readline("linux-assistant> ");
             match readline {
@@ -167,6 +167,20 @@ impl LinuxCommandAssistant {
 
                     if line.starts_with('!') {
                         let command = &line[1..];
+                        if command.trim().is_empty() {
+                            continue;
+                        }
+                        
+                        // 处理命令补全
+                        let completions = self.get_completions(&line);
+                        if !completions.is_empty() {
+                            println!("Possible completions:");
+                            for completion in completions {
+                                println!("  {}", completion.display);
+                            }
+                            continue;
+                        }
+
                         match self.execute_command(command) {
                             Ok(output) => {
                                 println!("Command output:\n{}", output);
@@ -185,11 +199,11 @@ impl LinuxCommandAssistant {
                         }
                     }
                 }
-                Err(rustyline::error::ReadlineError::Interrupted) => {
+                Err(ReadlineError::Interrupted) => {
                     println!("CTRL-C");
                     break;
                 }
-                Err(rustyline::error::ReadlineError::Eof) => {
+                Err(ReadlineError::Eof) => {
                     println!("CTRL-D");
                     break;
                 }
@@ -201,6 +215,16 @@ impl LinuxCommandAssistant {
         }
         Ok(())
     }
+    //////////add
+     fn get_completions(&self, line: &str) -> Vec<Pair> {
+        let helper = LinuxCommandCompleter;
+        if let Ok((_, completions)) = helper.complete(line, line.len(), &rustyline::Context::new()) {
+            completions
+        } else {
+            Vec::new()
+        }
+    }
+////////////////////
 }
 
 fn load_config() -> Result<Config> {
