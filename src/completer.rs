@@ -56,37 +56,34 @@ fn complete_path(path: &str, only_directories: bool, completions: &mut Vec<Pair>
     let (dir, file_prefix) = if path.starts_with('/') {
         // 处理绝对路径
         let path = Path::new(path);
-        (path.parent().unwrap_or(Path::new("/")).to_path_buf(), path.file_name().and_then(|s| s.to_str()).unwrap_or(""))
+        (path.parent().unwrap_or(Path::new("/")).to_path_buf(), path.file_name().and_then(|s| s.to_str()).unwrap_or("").to_string())
     } else {
         // 处理相对路径
         match Path::new(path).parent() {
-            Some(parent) => (parent.to_path_buf(), path.rsplit('/').next().unwrap_or("")),
-            None => (Path::new(".").to_path_buf(), path),
+            Some(parent) => (parent.to_path_buf(), path.rsplit('/').next().unwrap_or("").to_string()),
+            None => (Path::new(".").to_path_buf(), path.to_string()),
         }
     };
 
-    if let Ok(entries) = fs::read_dir(dir) {
+    if let Ok(entries) = fs::read_dir(&dir) {
         for entry in entries.flatten() {
             if let Ok(file_name) = entry.file_name().into_string() {
-                if file_name.starts_with(file_prefix) {
+                if file_name.starts_with(&file_prefix) {
                     if !only_directories || entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
-                        let mut completion = if path.starts_with('/') {
+                        let completion = if path.starts_with('/') {
                             // 对于绝对路径，保留完整路径
-                            let mut full_path = dir.join(&file_name).to_string_lossy().into_owned();
-                            if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
-                                full_path.push('/');
-                            }
-                            full_path
+                            dir.join(&file_name).to_string_lossy().into_owned()
                         } else {
                             // 对于相对路径，只返回文件名部分
-                            let mut name = file_name.clone();
-                            if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
-                                name.push('/');
-                            }
-                            name
+                            file_name.clone()
+                        };
+                        let display = if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+                            format!("{}/", file_name)
+                        } else {
+                            file_name.clone()
                         };
                         completions.push(Pair {
-                            display: file_name,
+                            display,
                             replacement: completion,
                         });
                     }
