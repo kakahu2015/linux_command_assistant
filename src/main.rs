@@ -32,6 +32,7 @@ struct LinuxCommandAssistant {
     client: Client,
     context: Vec<Message>,
     recent_interactions: VecDeque<String>,
+    command_history: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -62,6 +63,7 @@ impl LinuxCommandAssistant {
             client,
             context,
             recent_interactions: VecDeque::with_capacity(5),
+            command_history: Vec::new(),
         }
     }
 
@@ -213,6 +215,11 @@ async fn run(&mut self) -> Result<()> {
     Ok(())
 }
     //////////////////////////////////run end////
+        // 添加新方法
+    fn add_to_history(&mut self, command: String) {
+        self.command_history.push(command);
+    }
+    ////////////////////////////////////////////////
 }
 
 fn load_config() -> Result<Config> {
