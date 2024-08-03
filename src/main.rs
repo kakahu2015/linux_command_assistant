@@ -64,6 +64,7 @@ impl LinuxCommandAssistant {
         }
     }
 
+    /////////////////////////////
      async fn get_ai_response(&mut self, prompt: &str) -> Result<String> {
         let mut messages = self.context.clone();
         if !self.recent_interactions.is_empty() {
@@ -91,16 +92,26 @@ impl LinuxCommandAssistant {
             .headers(headers)
             .json(&request)
             .send()
-            .await?
-            .json::<ChatCompletionResponse>()
-            .await?;
+            .await
+            .context("Failed to send request to OpenAI API")?;
+
+        let status = response.status();
+        let body = response.text().await.context("Failed to read response body")?;
+
+        if !status.is_success() {
+            return Err(anyhow::anyhow!("API request failed with status {}: {}", status, body));
+        }
+
+        let response: ChatCompletionResponse = serde_json::from_str(&body)
+            .context("Failed to parse API response")?;
 
         if let Some(choice) = response.choices.first() {
             Ok(choice.message.content.clone())
         } else {
-            Err(anyhow::anyhow!("No response from AI"))
+            Err(anyhow::anyhow!("No response content from AI"))
         }
     }
+    /////////////////////////////////////////////////////////////
 
     fn execute_command(&self, command: &str) -> Result<String> {
         let output = Command::new("sh")
