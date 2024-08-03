@@ -31,6 +31,7 @@ struct LinuxCommandAssistant {
     client: Client,
     context: Vec<Message>,
     recent_interactions: VecDeque<String>,
+    command_history: History, // 新增：命令历史
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -61,6 +62,7 @@ impl LinuxCommandAssistant {
             client,
             context,
             recent_interactions: VecDeque::with_capacity(5),
+            command_history: History::new(), // 初始化命令历史
         }
     }
 
@@ -147,16 +149,16 @@ impl LinuxCommandAssistant {
             self.recent_interactions.pop_front();
         }
     }
-
-    async fn run(&mut self) -> Result<()> {
+///////////////////////////run start/////////////////////////
+ async fn run(&mut self) -> Result<()> {
         println!("Welcome to Linux Command Assistant.");
         println!("Type 'exit' to quit. Use '!' prefix to execute local Linux commands.");
         println!("Ask me anything about Linux commands!");
 
-        //let mut rl = Editor::<()>::new()?;
-        //let mut rl = Editor::with_config(rustyline::Config::builder().completion_type(rustyline::CompletionType::List).build());
         let mut rl = Editor::new()?;
         rl.set_helper(Some(LinuxCommandCompleter));
+        rl.set_history(&mut self.command_history)?; // 设置命令历史
+
         loop {
             let readline = rl.readline("linux-assistant> ");
             match readline {
@@ -167,6 +169,7 @@ impl LinuxCommandAssistant {
 
                     if line.starts_with('!') {
                         let command = &line[1..];
+                        rl.add_history_entry(line.as_str())?; // 添加到历史记录
                         match self.execute_command(command) {
                             Ok(output) => {
                                 println!("Command output:\n{}", output);
@@ -201,6 +204,8 @@ impl LinuxCommandAssistant {
         }
         Ok(())
     }
+}
+    //////////////////////////////////run end////
 }
 
 fn load_config() -> Result<Config> {
