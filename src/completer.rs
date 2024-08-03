@@ -5,6 +5,7 @@ use rustyline::hint::Hinter;
 use rustyline::validate::Validator;
 use std::fs;
 use std::path::Path;
+use std::env;
 
 pub struct LinuxCommandCompleter;
 
@@ -53,15 +54,19 @@ fn extract_word(line: &str, pos: usize) -> (usize, &str) {
 
 ///////////////////////////////////up complete_path
 fn complete_path(path: &str, only_directories: bool, completions: &mut Vec<Pair>) {
+    let current_dir = env::current_dir().unwrap_or_else(|_| Path::new(".").to_path_buf());
+    
     let (dir, file_prefix) = if path.starts_with('/') {
         // 处理绝对路径
         let path = Path::new(path);
         (path.parent().unwrap_or(Path::new("/")).to_path_buf(), path.file_name().and_then(|s| s.to_str()).unwrap_or("").to_string())
     } else {
-        // 处理相对路径
-        match Path::new(path).parent() {
-            Some(parent) => (parent.to_path_buf(), path.rsplit('/').next().unwrap_or("").to_string()),
-            None => (Path::new(".").to_path_buf(), path.to_string()),
+        // 处理相对路径，包括当前目录
+        let full_path = current_dir.join(path);
+        if let Some(parent) = full_path.parent() {
+            (parent.to_path_buf(), full_path.file_name().and_then(|s| s.to_str()).unwrap_or("").to_string())
+        } else {
+            (current_dir, path.to_string())
         }
     };
 
@@ -74,8 +79,9 @@ fn complete_path(path: &str, only_directories: bool, completions: &mut Vec<Pair>
                             // 对于绝对路径，保留完整路径
                             dir.join(&file_name).to_string_lossy().into_owned()
                         } else {
-                            // 对于相对路径，只返回文件名部分
-                            file_name.clone()
+                            // 对于相对路径，返回相对于当前目录的路径
+                            Path::new(path).parent().unwrap_or(Path::new(""))
+                                .join(&file_name).to_string_lossy().into_owned()
                         };
                         let display = if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
                             format!("{}/", file_name)
