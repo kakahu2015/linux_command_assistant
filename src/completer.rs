@@ -18,28 +18,50 @@ impl Completer for LinuxCommandCompleter {
         pos: usize,
         _ctx: &Context<'_>,
     ) -> rustyline::Result<(usize, Vec<Pair>)> {
-        let mut completions = Vec::new();
         let (start, word) = extract_word(line, pos);
+        let mut completions = Vec::new();
 
         if line.starts_with('!') {
             let command = &line[1..];
             let parts: Vec<&str> = command.split_whitespace().collect();
             
             if parts.is_empty() {
-                // 新增: 补全所有命令
                 complete_commands(&mut completions);
             } else if parts[0] == "cd" && parts.len() <= 2 {
-                // 新增: 对 cd 命令，只补全目录
                 let path = parts.get(1).map(|s| *s).unwrap_or("");
                 complete_path(path, true, &mut completions);
             } else {
-                // 修改: 对其他命令或其参数，补全文件和目录
                 let path = parts.last().unwrap_or(&"");
                 complete_path(path, false, &mut completions);
             }
         } else {
-            // 新增: 可以添加不带 '!' 前缀的 Linux 命令补全
             complete_commands(&mut completions);
+        }
+
+        // 如果只有一个补全选项，直接返回
+        if completions.len() == 1 {
+            return Ok((start, completions));
+        }
+
+        // 如果有多个选项，找出共同前缀
+        if let Some(common_prefix) = find_common_prefix(&completions) {
+            if common_prefix.len() > word.len() {
+                // 如果共同前缀比当前单词长，返回共同前缀
+                return Ok((start, vec![Pair {
+                    display: common_prefix.clone(),
+                    replacement: common_prefix,
+                }]));
+            }
+        }
+
+        // 如果有多个选项且没有更长的共同前缀，显示所有可能性
+        if completions.len() > 1 {
+            println!("\nDisplay all {} possibilities? (y or n)", completions.len());
+            // 这里需要实现用户输入 y/n 的逻辑，暂时默认显示
+            for completion in &completions {
+                println!("{}", completion.display);
+            }
+            println!(); // 打印一个空行
         }
 
         Ok((start, completions))
@@ -55,11 +77,9 @@ fn complete_path(path: &str, only_directories: bool, completions: &mut Vec<Pair>
     let current_dir = env::current_dir().unwrap_or_else(|_| Path::new(".").to_path_buf());
     
     let (dir, file_prefix) = if path.starts_with('/') {
-        // 处理绝对路径
         let path = Path::new(path);
         (path.parent().unwrap_or(Path::new("/")).to_path_buf(), path.file_name().and_then(|s| s.to_str()).unwrap_or("").to_string())
     } else {
-        // 处理相对路径，包括当前目录
         let full_path = current_dir.join(path);
         if let Some(parent) = full_path.parent() {
             (parent.to_path_buf(), full_path.file_name().and_then(|s| s.to_str()).unwrap_or("").to_string())
@@ -74,10 +94,8 @@ fn complete_path(path: &str, only_directories: bool, completions: &mut Vec<Pair>
                 if file_name.starts_with(&file_prefix) {
                     if !only_directories || entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
                         let completion = if path.starts_with('/') {
-                            // 对于绝对路径，保留完整路径
                             dir.join(&file_name).to_string_lossy().into_owned()
                         } else {
-                            // 对于相对路径，返回相对于当前目录的路径
                             Path::new(path).parent().unwrap_or(Path::new(""))
                                 .join(&file_name).to_string_lossy().into_owned()
                         };
@@ -97,7 +115,6 @@ fn complete_path(path: &str, only_directories: bool, completions: &mut Vec<Pair>
     }
 }
 
-// 新增: complete_commands 函数
 fn complete_commands(completions: &mut Vec<Pair>) {
     let common_commands = vec!["ls", "cd", "pwd", "grep", "find", "cat", "echo", "touch", "mkdir", "rm"];
     for cmd in common_commands {
@@ -106,6 +123,22 @@ fn complete_commands(completions: &mut Vec<Pair>) {
             replacement: cmd.to_string(),
         });
     }
+}
+
+fn find_common_prefix(completions: &[Pair]) -> Option<String> {
+    if completions.is_empty() {
+        return None;
+    }
+    let first = &completions[0].replacement;
+    let mut common_prefix = String::new();
+    for (i, c) in first.chars().enumerate() {
+        if completions.iter().all(|p| p.replacement.chars().nth(i) == Some(c)) {
+            common_prefix.push(c);
+        } else {
+            break;
+        }
+    }
+    Some(common_prefix)
 }
 
 impl Helper for LinuxCommandCompleter {}
