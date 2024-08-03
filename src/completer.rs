@@ -51,23 +51,40 @@ fn extract_word(line: &str, pos: usize) -> (usize, &str) {
     (word_start, &line[word_start..pos])
 }
 
-///////////////////////////////////
+///////////////////////////////////up complete_path
 fn complete_path(path: &str, only_directories: bool, completions: &mut Vec<Pair>) {
-    let (dir, file_prefix) = match Path::new(path).parent() {
-        Some(parent) => (parent.to_path_buf(), path.rsplit('/').next().unwrap_or("")),
-        None => (Path::new(".").to_path_buf(), path),
+    let (dir, file_prefix) = if path.starts_with('/') {
+        // 处理绝对路径
+        let path = Path::new(path);
+        (path.parent().unwrap_or(Path::new("/")).to_path_buf(), path.file_name().and_then(|s| s.to_str()).unwrap_or(""))
+    } else {
+        // 处理相对路径
+        match Path::new(path).parent() {
+            Some(parent) => (parent.to_path_buf(), path.rsplit('/').next().unwrap_or("")),
+            None => (Path::new(".").to_path_buf(), path),
+        }
     };
 
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
             if let Ok(file_name) = entry.file_name().into_string() {
                 if file_name.starts_with(file_prefix) {
-                    // 修改: 增加了对 only_directories 的检查
                     if !only_directories || entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
-                        let mut completion = file_name.clone();
-                        if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
-                            completion.push('/');
-                        }
+                        let mut completion = if path.starts_with('/') {
+                            // 对于绝对路径，保留完整路径
+                            let mut full_path = dir.join(&file_name).to_string_lossy().into_owned();
+                            if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+                                full_path.push('/');
+                            }
+                            full_path
+                        } else {
+                            // 对于相对路径，只返回文件名部分
+                            let mut name = file_name.clone();
+                            if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+                                name.push('/');
+                            }
+                            name
+                        };
                         completions.push(Pair {
                             display: file_name,
                             replacement: completion,
