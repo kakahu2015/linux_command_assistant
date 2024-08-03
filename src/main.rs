@@ -204,7 +204,6 @@ impl LinuxCommandAssistant {
         }
         Ok(())
     }
-}
     //////////////////////////////////run end////
 }
 
