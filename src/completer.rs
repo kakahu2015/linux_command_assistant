@@ -115,8 +115,14 @@ fn complete_path(path: &str, only_directories: bool, completions: &mut Vec<Pair>
     }
 }
 
+// 修改 complete_commands 函数
 fn complete_commands(completions: &mut Vec<Pair>) {
-    let common_commands = vec!["ls", "cd", "pwd", "grep", "find", "cat", "echo", "touch", "mkdir", "rm"];
+    let common_commands = vec![
+        "ls", "cd", "pwd", "grep", "find", "cat", "echo", "touch", "mkdir", "rm",
+        "cp", "mv", "chmod", "chown", "ps", "top", "kill", "df", "du", "tar",
+        "gzip", "gunzip", "ssh", "scp", "rsync", "wget", "curl", "ping", "netstat",
+        "ifconfig", "man", "history", "alias", "export", "source", "sudo",
+    ];
     for cmd in common_commands {
         completions.push(Pair {
             display: cmd.to_string(),
