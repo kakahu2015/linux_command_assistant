@@ -1,0 +1,5 @@
+openai:
+  api_key: "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"
+  api_base: "https://api.groq.com/openai/v1"
+  model: "llama3-70b-8192"
+
