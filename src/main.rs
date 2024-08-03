@@ -2,7 +2,6 @@ use anyhow::{Context, Result};
 use reqwest::Client;
 use rustyline::Editor;
 use rustyline::config::Config as RustylineConfig;
-use rustyline::history::DefaultHistory;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::process::Command;
@@ -33,7 +32,6 @@ struct LinuxCommandAssistant {
     client: Client,
     context: Vec<Message>,
     recent_interactions: VecDeque<String>,
-    command_history: DefaultHistory, // 使用 DefaultHistory 替代 History
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -64,7 +62,6 @@ impl LinuxCommandAssistant {
             client,
             context,
             recent_interactions: VecDeque::with_capacity(5),
-            command_history: DefaultHistory::new(), // 使用 DefaultHistory::new()
         }
     }
 
@@ -160,7 +157,10 @@ async fn run(&mut self) -> Result<()> {
     let config = RustylineConfig::builder().build();
     let mut rl = Editor::with_config(config)?;
     rl.set_helper(Some(LinuxCommandCompleter));
-    rl.set_history(&mut self.command_history)?;
+
+    if rl.load_history("history.txt").is_err() {
+        println!("No previous history.");
+    }
 
     loop {
         let readline = rl.readline("linux-assistant> ");
@@ -172,9 +172,7 @@ async fn run(&mut self) -> Result<()> {
 
                 if line.starts_with('!') {
                     let command = &line[1..];
-                    if !rl.add_history_entry(line.as_str()) {
-                        println!("Warning: Failed to add command to history.");
-                    }
+                    rl.add_history_entry(line.as_str());
                     match self.execute_command(command) {
                         Ok(output) => {
                             println!("Command output:\n{}", output);
@@ -183,7 +181,14 @@ async fn run(&mut self) -> Result<()> {
                         Err(e) => println!("Error executing command: {}", e),
                     }
                 } else {
-                    // ... 处理 AI 响应的代码保持不变 ...
+                    match self.get_ai_response(&line).await {
+                        Ok(response) => {
+                            println!("AI: {}", response);
+                            self.update_context(&line, &response);
+                            self.add_to_recent_interactions(format!("User: {}\nAI: {}", line, response));
+                        }
+                        Err(e) => println!("Error getting AI response: {}", e),
+                    }
                 }
             }
             Err(rustyline::error::ReadlineError::Interrupted) => {
@@ -200,6 +205,11 @@ async fn run(&mut self) -> Result<()> {
             }
         }
     }
+
+    rl.save_history("history.txt").unwrap_or_else(|err| {
+        println!("Error saving history: {}", err);
+    });
+
     Ok(())
 }
     //////////////////////////////////run end////
