@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use reqwest::Client;
 use rustyline::Editor;
+use rustyline::history::DefaultHistory;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::process::Command;
@@ -155,8 +156,9 @@ async fn run(&mut self) -> Result<()> {
     println!("Type 'exit' to quit. Use '!' prefix to execute local Linux commands.");
     println!("Ask me anything about Linux commands!");
 
-    let config = Config::builder().history_ignore_space(true).build();
-    let mut rl = Editor::with_config(config)?;
+    //let config = Config::builder().history_ignore_space(true).build();
+    let mut rl = Editor::<LinuxCommandCompleter, DefaultHistory>::new()?;
+    //let mut rl = Editor::with_config(config)?;
     rl.set_helper(Some(LinuxCommandCompleter));
 
     loop {
