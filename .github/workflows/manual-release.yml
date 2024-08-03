@@ -23,11 +23,14 @@ jobs:
         toolchain: stable
         override: true
 
+    - name: Add MUSL target
+      run: rustup target add x86_64-unknown-linux-musl
+
     - name: Build
-      run: cargo build --release
+      run: cargo build --release --target x86_64-unknown-linux-musl
 
     - name: Run tests
-      run: cargo test --release
+      run: cargo test --release --target x86_64-unknown-linux-musl
 
     - name: Create Release
       id: create_release
@@ -46,6 +49,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./target/release/linux_command_assistant
+        asset_path: ./target/x86_64-unknown-linux-musl/release/linux_command_assistant
         asset_name: linux_command_assistant-${{ github.event.inputs.version }}
         asset_content_type: application/octet-stream
