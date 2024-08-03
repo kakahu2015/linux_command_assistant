@@ -1,5 +1,8 @@
 use rustyline::completion::{Completer, Pair};
-use rustyline::Context;
+use use rustyline::{Context, Helper};
+use rustyline::highlight::Highlighter;
+use rustyline::hint::Hinter;
+use rustyline::validate::Validator;
 use std::fs;
 use std::path::Path;
 
@@ -73,3 +76,13 @@ fn complete_path(path: &str, only_directories: bool, completions: &mut Vec<Pair>
         }
     }
 }
+
+impl Helper for LinuxCommandCompleter {}
+
+impl Hinter for LinuxCommandCompleter {
+    type Hint = String;
+}
+
+impl Highlighter for LinuxCommandCompleter {}
+
+impl Validator for LinuxCommandCompleter {}
