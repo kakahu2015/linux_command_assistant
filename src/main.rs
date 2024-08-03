@@ -1,10 +1,12 @@
 use anyhow::{Context, Result};
 use reqwest::Client;
 use rustyline::Editor;
+use rustyline::config::CompletionType; 
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::process::Command;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
+use rustyline::error::ReadlineError;  // 添加这行
 mod completer;
 use completer::LinuxCommandCompleter;
 
