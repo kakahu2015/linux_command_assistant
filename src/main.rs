@@ -152,15 +152,14 @@ impl LinuxCommandAssistant {
     }
 ///////////////////////////run start/////////////////////////
 async fn run(&mut self) -> Result<()> {
-    println!("Welcome to Linux Command Assistant.");
-    println!("Type 'exit' to quit. Use '!' prefix to execute local Linux commands.");
-    println!("Ask me anything about Linux commands!");
-
-    let config = RustylineConfig::builder().build();
+    let config = RustylineConfig::builder()
+        .history_ignore_space(true)
+        .completion_type(rustyline::CompletionType::List)
+        .build();
     let mut rl = Editor::with_config(config)?;
     rl.set_helper(Some(LinuxCommandCompleter));
 
-    if rl.load_history("history.txt").is_err() {
+    if rl.load_history(".linux_assistant_history").is_err() {
         println!("No previous history.");
     }
 
@@ -168,13 +167,18 @@ async fn run(&mut self) -> Result<()> {
         let readline = rl.readline("linux-assistant> ");
         match readline {
             Ok(line) => {
+                let line = line.trim();
                 if line.eq_ignore_ascii_case("exit") {
                     break;
                 }
 
+                if !line.is_empty() && !line.starts_with('#') {
+                    self.add_to_history(line.to_string());
+                    rl.add_history_entry(line);
+                }
+
                 if line.starts_with('!') {
                     let command = &line[1..];
-                    rl.add_history_entry(line.as_str());
                     match self.execute_command(command) {
                         Ok(output) => {
                             println!("Command output:\n{}", output);
@@ -183,21 +187,21 @@ async fn run(&mut self) -> Result<()> {
                         Err(e) => println!("Error executing command: {}", e),
                     }
                 } else {
-                    match self.get_ai_response(&line).await {
+                    match self.get_ai_response(line).await {
                         Ok(response) => {
                             println!("AI: {}", response);
-                            self.update_context(&line, &response);
+                            self.update_context(line, &response);
                             self.add_to_recent_interactions(format!("User: {}\nAI: {}", line, response));
                         }
                         Err(e) => println!("Error getting AI response: {}", e),
                     }
                 }
             }
-            Err(rustyline::error::ReadlineError::Interrupted) => {
+            Err(ReadlineError::Interrupted) => {
                 println!("CTRL-C");
                 break;
             }
-            Err(rustyline::error::ReadlineError::Eof) => {
+            Err(ReadlineError::Eof) => {
                 println!("CTRL-D");
                 break;
             }
@@ -208,7 +212,7 @@ async fn run(&mut self) -> Result<()> {
         }
     }
 
-    rl.save_history("history.txt").unwrap_or_else(|err| {
+    rl.save_history(".linux_assistant_history").unwrap_or_else(|err| {
         println!("Error saving history: {}", err);
     });
 
