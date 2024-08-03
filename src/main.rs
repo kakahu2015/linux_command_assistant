@@ -8,6 +8,7 @@ use std::process::Command;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 mod completer;
 use completer::LinuxCommandCompleter;
+use rustyline::error::ReadlineError;
 
 #[derive(Debug, Deserialize)]
 struct Config {
