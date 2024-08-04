@@ -183,7 +183,7 @@ async fn run(&mut self) -> Result<()> {
                     let command = &line[1..];
                     match self.execute_command(command) {
                         Ok(output) => {
-                            println!("Command output:\n{}", output);
+                            println!("{}", output);
                             self.add_to_recent_interactions(format!("Command: {}\nOutput: {}", command, output));
                         }
                         Err(e) => println!("Error executing command: {}", e),
