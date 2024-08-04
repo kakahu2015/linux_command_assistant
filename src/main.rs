@@ -13,6 +13,7 @@ use rustyline::error::ReadlineError;
 #[derive(Debug, Deserialize)]
 struct Config {
     openai: OpenAIConfig,
+    system_prompt: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -57,8 +58,8 @@ impl LinuxCommandAssistant {
         let client = Client::new();
         let context = vec![Message {
             role: "system".to_string(),
-            content: "You are a Linux command assistant. Your primary function is to help users with Linux commands, explain their usage, and provide examples. Always prioritize giving clear, concise, and accurate information about Linux commands and operations.".to_string(),
-        }];
+            content: config.system_prompt.clone(), 
+    }];
         Self {
             config,
             client,
