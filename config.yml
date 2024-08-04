@@ -1,5 +1,7 @@
 openai:
   api_key: "xxx"
-  api_base: "https://api.groq.com/openai/v1"
+  api_base: "https://api.groq.com/openai/v1/chat/completions"
   model: "llama3-70b-8192"
-
+max_recent_interactions: 5
+max_openai_context: 10
+system_prompt: "You are a Linux command assistant. Your primary function is to help users with Linux commands, explain their usage, and provide examples. Always prioritize giving clear, concise, and accurate information about Linux commands and operations."
