@@ -9,6 +9,10 @@ use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 mod completer;
 use completer::LinuxCommandCompleter;
 use rustyline::error::ReadlineError;
+use std::io::{stdout, Write};
+
+const YELLOW: &str = "\x1b[33m";
+const RESET: &str = "\x1b[0m";
 
 #[derive(Debug, Deserialize)]
 struct Config {
@@ -162,7 +166,7 @@ async fn run(&mut self) -> Result<()> {
     rl.set_helper(Some(LinuxCommandCompleter));
 
     loop {
-        let readline = rl.readline("kaka-ai> ");
+        let readline = rl.readline(&format!("{}kaka-ai> {}", YELLOW, RESET));
         match readline {
             Ok(line) => {
                 let line = line.trim();
