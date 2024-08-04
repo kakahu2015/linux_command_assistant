@@ -171,10 +171,6 @@ async fn run(&mut self) -> Result<()> {
             Ok(line) => {
                 let line = line.trim();
                 if line.eq_ignore_ascii_case("exit") {
-                    // 在退出前保存历史记录
-                    if let Err(err) = rl.save_history(".linux_assistant_history") {
-                        eprintln!("Error saving history: {}", err);
-                    }
                     break;
                 }
 
@@ -217,10 +213,6 @@ async fn run(&mut self) -> Result<()> {
             }
         }
     }
-
-    rl.save_history(".linux_assistant_history").unwrap_or_else(|err| {
-        println!("Error saving history: {}", err);
-    });
 
     Ok(())
 }
