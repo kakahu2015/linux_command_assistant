@@ -161,16 +161,16 @@ async fn run(&mut self) -> Result<()> {
     let mut rl = Editor::with_config(config)?;
     rl.set_helper(Some(LinuxCommandCompleter));
 
-    if rl.load_history(".linux_assistant_history").is_err() {
-        println!("No previous history.");
-    }
-
     loop {
-        let readline = rl.readline("linux-assistant> ");
+        let readline = rl.readline("kaka-ai> ");
         match readline {
             Ok(line) => {
                 let line = line.trim();
                 if line.eq_ignore_ascii_case("exit") {
+                    // 在退出前保存历史记录
+                    if let Err(err) = rl.save_history(".linux_assistant_history") {
+                        eprintln!("Error saving history: {}", err);
+                    }
                     break;
                 }
 
