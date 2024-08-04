@@ -211,7 +211,7 @@ async fn run(&mut self) -> Result<()> {
                 } else {
                     match self.get_ai_response(line).await {
                         Ok(response) => {
-                            println!("AI: {}", response);
+                            println!("kaka-AI: {}", response);
                             self.update_context(line, &response);
                             self.add_to_recent_interactions(format!("User: {}\nAI: {}", line, response));
                         }
