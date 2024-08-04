@@ -77,11 +77,14 @@ impl LinuxCommandAssistant {
 
     /////////////////////////////
      async fn get_ai_response(&mut self, prompt: &str) -> Result<String> {
-        let mut messages = vec![Message {
-          role: "system".to_string(),
-          content: self.config.system_prompt.clone(),
-        }];
         let mut messages = self.context.clone();
+        if messages.is_empty() {
+           messages.push(Message {
+            role: "system".to_string(),
+            content: self.config.system_prompt.clone(),
+          });
+         }
+        
         if !self.recent_interactions.is_empty() {
             let recent_history = self.recent_interactions.iter().cloned().collect::<Vec<_>>().join("\n");
             messages.push(Message {
