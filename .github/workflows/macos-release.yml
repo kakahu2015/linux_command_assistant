@@ -1,4 +1,4 @@
-name: macOS Release
+name: macOS x86_64 Release
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release-macos:
+  build-and-release-macos-x86_64:
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v2
@@ -21,19 +21,20 @@ jobs:
       uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
+        target: x86_64-apple-darwin
         override: true
 
-    - name: Build for macOS
+    - name: Build for macOS x86_64
       uses: actions-rs/cargo@v1
       with:
         command: build
-        args: --release
+        args: --release --target x86_64-apple-darwin
 
-    - name: Run tests for macOS
+    - name: Run tests for macOS x86_64
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: --release
+        args: --release --target x86_64-apple-darwin
 
     - name: Create Release
       id: create_release
@@ -41,8 +42,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: v${{ github.event.inputs.version }}-macos
-        release_name: Release ${{ github.event.inputs.version }} (macOS)
+        tag_name: v${{ github.event.inputs.version }}-macos-x86_64
+        release_name: Release ${{ github.event.inputs.version }} (macOS x86_64)
         draft: false
         prerelease: false
 
@@ -52,6 +53,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./target/release/linux_command_assistant
-        asset_name: linux_command_assistant-${{ github.event.inputs.version }}-macos
+        asset_path: ./target/x86_64-apple-darwin/release/linux_command_assistant
+        asset_name: linux_command_assistant-${{ github.event.inputs.version }}-macos-x86_64
         asset_content_type: application/octet-stream
