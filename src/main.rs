@@ -18,6 +18,8 @@ const RESET: &str = "\x1b[0m";
 struct Config {
     openai: OpenAIConfig,
     system_prompt: String,
+    max_recent_interactions: usize,
+    max_openai_context: usize,
 }
 
 #[derive(Debug, Deserialize)]
@@ -68,13 +70,17 @@ impl LinuxCommandAssistant {
             config,
             client,
             context,
-            recent_interactions: VecDeque::with_capacity(5),
+            recent_interactions: VecDeque::with_capacity(config.max_recent_interactions),
             command_history: Vec::new(),
         }
     }
 
     /////////////////////////////
      async fn get_ai_response(&mut self, prompt: &str) -> Result<String> {
+        let mut messages = vec![Message {
+          role: "system".to_string(),
+          content: self.config.system_prompt.clone(),
+        }];
         let mut messages = self.context.clone();
         if !self.recent_interactions.is_empty() {
             let recent_history = self.recent_interactions.iter().cloned().collect::<Vec<_>>().join("\n");
@@ -145,14 +151,15 @@ impl LinuxCommandAssistant {
             role: "assistant".to_string(),
             content: response.to_string(),
         });
-        if self.context.len() > 10 {
-            self.context.drain(1..3);
-        }
+         // 只保留最新的 max_openai_context 条消息
+      if self.context.len() > self.config.max_openai_context {
+          self.context = self.context.split_off(self.context.len() - self.config.max_openai_context);
+      }
     }
 
     fn add_to_recent_interactions(&mut self, interaction: String) {
         self.recent_interactions.push_back(interaction);
-        if self.recent_interactions.len() > 5 {
+        if self.recent_interactions.len() > self.config.max_recent_interactions {
             self.recent_interactions.pop_front();
         }
     }
@@ -172,6 +179,15 @@ async fn run(&mut self) -> Result<()> {
                 let line = line.trim();
                 if line.eq_ignore_ascii_case("exit") {
                     break;
+                }
+
+                if line.eq_ignore_ascii_case("reset") {
+                   // 清空所有上下文
+                   self.context.clear();
+                   // 清空最近交互
+                   self.recent_interactions.clear();
+                    println!("Context and recent interactions have been reset.");
+                    continue;
                 }
 
                 if !line.is_empty() && !line.starts_with('#') {
