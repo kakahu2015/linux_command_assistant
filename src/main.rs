@@ -60,17 +60,18 @@ struct Choice {
 }
 
 impl LinuxCommandAssistant {
-    fn new(config: Config) -> Self {
+   fn new(config: Config) -> Self {
         let client = Client::new();
         let context = vec![Message {
             role: "system".to_string(),
             content: config.system_prompt.clone(), 
-    }];
+        }];
+        let max_recent_interactions = config.max_recent_interactions;
         Self {
             config,
             client,
             context,
-            recent_interactions: VecDeque::with_capacity(config.max_recent_interactions),
+            recent_interactions: VecDeque::with_capacity(max_recent_interactions),
             command_history: Vec::new(),
         }
     }
