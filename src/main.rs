@@ -78,11 +78,9 @@ impl LinuxCommandAssistant {
     }
 
     /////////////////////////////
- async fn get_ai_response(&mut self, prompt: &str) -> Result<String> {
+async fn get_ai_response(&mut self, prompt: &str) -> Result<String> {
         println!("Entering get_ai_response function");
         
-        
-
         let mut messages = self.context.clone();
         if messages.is_empty() {
             println!("Context is empty, adding system prompt");
@@ -129,13 +127,14 @@ impl LinuxCommandAssistant {
         match response {
             Ok(resp) => {
                 println!("Request completed in {:?}", start.elapsed());
-                println!("Response status: {}", resp.status());
+                let status = resp.status();
+                println!("Response status: {}", status);
                 println!("Response headers: {:?}", resp.headers());
 
                 let body = resp.text().await.context("Failed to read response body")?;
                 println!("Response body: {}", body);
 
-                if resp.status().is_success() {
+                if status.is_success() {
                     let response: serde_json::Value = serde_json::from_str(&body)
                         .context("Failed to parse API response")?;
                     
@@ -145,7 +144,7 @@ impl LinuxCommandAssistant {
                         Err(anyhow::anyhow!("No response content from AI"))
                     }
                 } else {
-                    Err(anyhow::anyhow!("API request failed with status {}: {}", resp.status(), body))
+                    Err(anyhow::anyhow!("API request failed with status {}: {}", status, body))
                 }
             },
             Err(e) => {
