@@ -10,6 +10,7 @@ mod completer;
 use completer::LinuxCommandCompleter;
 use rustyline::error::ReadlineError;
 use std::io::{stdout, Write};
+use std::time::Instant;
 
 const YELLOW: &str = "\x1b[33m";
 const RESET: &str = "\x1b[0m";
@@ -77,59 +78,80 @@ impl LinuxCommandAssistant {
     }
 
     /////////////////////////////
-     async fn get_ai_response(&mut self, prompt: &str) -> Result<String> {
-        let mut messages = self.context.clone();
-        if messages.is_empty() {
-           messages.push(Message {
+  async fn get_ai_response(&mut self, prompt: &str) -> Result<String> {
+    let mut messages = self.context.clone();
+    if messages.is_empty() {
+        messages.push(Message {
             role: "system".to_string(),
             content: self.config.system_prompt.clone(),
-          });
-         }
-        
-        if !self.recent_interactions.is_empty() {
-            let recent_history = self.recent_interactions.iter().cloned().collect::<Vec<_>>().join("\n");
-            messages.push(Message {
-                role: "user".to_string(),
-                content: format!("Recent interactions:\n{}\nPlease consider this context for the following question about Linux commands.", recent_history),
-            });
-        }
+        });
+    }
+    
+    if !self.recent_interactions.is_empty() {
+        let recent_history = self.recent_interactions.iter().cloned().collect::<Vec<_>>().join("\n");
         messages.push(Message {
             role: "user".to_string(),
-            content: prompt.to_string(),
+            content: format!("Recent interactions:\n{}\nPlease consider this context for the following question about Linux commands.", recent_history),
         });
-
-        let request = ChatCompletionRequest {
-            model: self.config.openai.model.clone(),
-            messages,
-        };
-
-        let mut headers = HeaderMap::new();
-        headers.insert(AUTHORIZATION, HeaderValue::from_str(&format!("Bearer {}", self.config.openai.api_key))?);
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-
-        let response = self.client.post(&self.config.openai.api_base)
-            .headers(headers)
-            .json(&request)
-            .send()
-            .await
-            .context("Failed to send request to OpenAI API")?;
-
-        let status = response.status();
-        let body = response.text().await.context("Failed to read response body")?;
-
-        if !status.is_success() {
-            return Err(anyhow::anyhow!("API request failed with status {}: {}", status, body));
-        }
-
-        let response: ChatCompletionResponse = serde_json::from_str(&body)
-            .context("Failed to parse API response")?;
-
-        if let Some(choice) = response.choices.first() {
-            Ok(choice.message.content.clone())
-        } else {
-            Err(anyhow::anyhow!("No response content from AI"))
-        }
     }
+    messages.push(Message {
+        role: "user".to_string(),
+        content: prompt.to_string(),
+    });
+
+    let request = ChatCompletionRequest {
+        model: self.config.openai.model.clone(),
+        messages,
+    };
+
+    let mut headers = HeaderMap::new();
+    headers.insert(AUTHORIZATION, HeaderValue::from_str(&format!("Bearer {}", self.config.openai.api_key))?);
+    headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+
+    let url = &self.config.openai.api_base;
+    println!("Sending request to URL: {}", url);
+
+    println!("Request headers:");
+    for (key, value) in headers.iter() {
+        println!("  {}: {}", key, value.to_str().unwrap_or("Unable to display"));
+    }
+
+    println!("Request body: {}", serde_json::to_string_pretty(&request)?);
+
+    let start_time = Instant::now();
+    let response = self.client.post(url)
+        .headers(headers)
+        .json(&request)
+        .send()
+        .await
+        .context("Failed to send request to OpenAI API")?;
+
+    let status = response.status();
+    let duration = start_time.elapsed();
+    println!("Response received in {:?}", duration);
+    println!("Response status: {}", status);
+
+    println!("Response headers:");
+    for (key, value) in response.headers().iter() {
+        println!("  {}: {}", key, value.to_str().unwrap_or("Unable to display"));
+    }
+
+    let body = response.text().await.context("Failed to read response body")?;
+    println!("Response body: {}", body);
+
+    if !status.is_success() {
+        return Err(anyhow::anyhow!("API request failed with status {}: {}", status, body));
+    }
+
+    let response: ChatCompletionResponse = serde_json::from_str(&body)
+        .context("Failed to parse API response")?;
+
+    if let Some(choice) = response.choices.first() {
+        Ok(choice.message.content.clone())
+    } else {
+        Err(anyhow::anyhow!("No response content from AI"))
+    }
+}
     /////////////////////////////////////////////////////////////
 
     fn execute_command(&self, command: &str) -> Result<String> {
