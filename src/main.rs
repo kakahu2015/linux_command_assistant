@@ -62,7 +62,13 @@ struct Choice {
 
 impl LinuxCommandAssistant {
    fn new(config: Config) -> Self {
-        let client = Client::new();
+        let tls = TlsConnector::builder()
+        .min_protocol_version(Some(Version::TLS_1_3))
+        .build()?;
+         let client = Client::builder()
+         .use_preconfigured_tls(tls)
+         .build()?;
+        //let client = Client::new();
         let context = vec![Message {
             role: "system".to_string(),
             content: config.system_prompt.clone(), 
