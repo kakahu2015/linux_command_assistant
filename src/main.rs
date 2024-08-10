@@ -10,7 +10,7 @@ mod completer;
 use completer::LinuxCommandCompleter;
 use rustyline::error::ReadlineError;
 use std::io::{stdout, Write};
-use serde_json::json;
+use std::time::Instant; 
 
 const YELLOW: &str = "\x1b[33m";
 const RESET: &str = "\x1b[0m";
@@ -81,13 +81,6 @@ impl LinuxCommandAssistant {
  async fn get_ai_response(&mut self, prompt: &str) -> Result<String> {
         println!("Entering get_ai_response function");
         
-        // 可选：DNS 解析
-        
-        let resolver = AsyncResolver::tokio_from_system_conf().await?;
-        let start = Instant::now();
-        println!("Resolving DNS for {}", self.config.openai.api_base);
-        let ips = resolver.lookup_ip(self.config.openai.api_base.clone()).await?;
-        println!("DNS resolved in {:?}. IPs: {:?}", start.elapsed(), ips.iter().collect::<Vec<_>>());
         
 
         let mut messages = self.context.clone();
