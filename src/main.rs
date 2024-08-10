@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use reqwest::Client;
+use reqwest::tls::{TlsConnector, Version};
 use rustyline::Editor;
 use rustyline::config::Config as RustylineConfig;
 use serde::{Deserialize, Serialize};
@@ -9,8 +10,8 @@ use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 mod completer;
 use completer::LinuxCommandCompleter;
 use rustyline::error::ReadlineError;
-use std::io::{stdout, Write};
-use std::time::Instant; 
+use std::io;
+use std::time::Instant;
 
 const YELLOW: &str = "\x1b[33m";
 const RESET: &str = "\x1b[0m";
@@ -61,27 +62,28 @@ struct Choice {
 }
 
 impl LinuxCommandAssistant {
-   fn new(config: Config) -> Self {
-        let tls = TlsConnector::builder()
+fn new(config: Config) -> Result<Self> {
+    let tls = TlsConnector::builder()
         .min_protocol_version(Some(Version::TLS_1_3))
-        .build()?;
-         let client = Client::builder()
-         .use_preconfigured_tls(tls)
-         .build()?;
-        //let client = Client::new();
-        let context = vec![Message {
-            role: "system".to_string(),
-            content: config.system_prompt.clone(), 
-        }];
-        let max_recent_interactions = config.max_recent_interactions;
-        Self {
-            config,
-            client,
-            context,
-            recent_interactions: VecDeque::with_capacity(max_recent_interactions),
-            command_history: Vec::new(),
-        }
-    }
+        .build()
+        .context("Failed to build TLS connector")?;
+    let client = Client::builder()
+        .use_preconfigured_tls(tls)
+        .build()
+        .context("Failed to build HTTP client")?;
+    let context = vec![Message {
+        role: "system".to_string(),
+        content: config.system_prompt.clone(),
+    }];
+    let max_recent_interactions = config.max_recent_interactions;
+    Ok(Self {
+        config,
+        client,
+        context,
+        recent_interactions: VecDeque::with_capacity(max_recent_interactions),
+        command_history: Vec::new(),
+    })
+}
 
     /////////////////////////////
 async fn get_ai_response(&mut self, prompt: &str) -> Result<String> {
@@ -289,5 +291,6 @@ fn load_config() -> Result<Config> {
 async fn main() -> Result<()> {
     let config = load_config()?;
     let mut assistant = LinuxCommandAssistant::new(config);
+    //let mut assistant = LinuxCommandAssistant::new(config)?;
     assistant.run().await
 }
