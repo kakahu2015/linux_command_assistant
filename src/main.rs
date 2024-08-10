@@ -78,9 +78,18 @@ impl LinuxCommandAssistant {
     }
 
     /////////////////////////////
-    async fn get_ai_response(&mut self, prompt: &str) -> Result<String> {
+ async fn get_ai_response(&mut self, prompt: &str) -> Result<String> {
         println!("Entering get_ai_response function");
         
+        // 可选：DNS 解析
+        /*
+        let resolver = AsyncResolver::tokio_from_system_conf().await?;
+        let start = Instant::now();
+        println!("Resolving DNS for {}", self.config.openai.api_base);
+        let ips = resolver.lookup_ip(self.config.openai.api_base.clone()).await?;
+        println!("DNS resolved in {:?}. IPs: {:?}", start.elapsed(), ips.iter().collect::<Vec<_>>());
+        */
+
         let mut messages = self.context.clone();
         if messages.is_empty() {
             println!("Context is empty, adding system prompt");
@@ -105,7 +114,7 @@ impl LinuxCommandAssistant {
         });
 
         println!("Preparing request payload");
-        let request = json!({
+        let request = serde_json::json!({
             "model": self.config.openai.model,
             "messages": messages,
         });
@@ -117,33 +126,43 @@ impl LinuxCommandAssistant {
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
 
         println!("Sending request to OpenAI API: {}", self.config.openai.api_base);
+        let start = Instant::now();
         let response = self.client.post(&self.config.openai.api_base)
             .headers(headers)
             .json(&request)
             .send()
-            .await
-            .context("Failed to send request to OpenAI API")?;
+            .await;
 
-        println!("Received response with status: {}", response.status());
-        
-        let status = response.status();
-        let body = response.text().await.context("Failed to read response body")?;
-        
-        println!("Response body: {}", body);
+        match response {
+            Ok(resp) => {
+                println!("Request completed in {:?}", start.elapsed());
+                println!("Response status: {}", resp.status());
+                println!("Response headers: {:?}", resp.headers());
 
-        if !status.is_success() {
-            return Err(anyhow::anyhow!("API request failed with status {}: {}", status, body));
-        }
+                let body = resp.text().await.context("Failed to read response body")?;
+                println!("Response body: {}", body);
 
-        println!("Parsing API response");
-        let response: serde_json::Value = serde_json::from_str(&body)
-            .context("Failed to parse API response")?;
-
-        println!("Extracting content from response");
-        if let Some(content) = response["choices"][0]["message"]["content"].as_str() {
-            Ok(content.to_string())
-        } else {
-            Err(anyhow::anyhow!("No response content from AI"))
+                if resp.status().is_success() {
+                    let response: serde_json::Value = serde_json::from_str(&body)
+                        .context("Failed to parse API response")?;
+                    
+                    if let Some(content) = response["choices"][0]["message"]["content"].as_str() {
+                        Ok(content.to_string())
+                    } else {
+                        Err(anyhow::anyhow!("No response content from AI"))
+                    }
+                } else {
+                    Err(anyhow::anyhow!("API request failed with status {}: {}", resp.status(), body))
+                }
+            },
+            Err(e) => {
+                println!("Request failed after {:?}", start.elapsed());
+                println!("Error details: {:?}", e);
+                if let Some(url) = e.url() {
+                    println!("Failed URL: {}", url);
+                }
+                Err(anyhow::anyhow!("Failed to send request: {}", e))
+            }
         }
     }
     /////////////////////////////////////////////////////////////
