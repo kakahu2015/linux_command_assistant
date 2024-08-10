@@ -64,10 +64,12 @@ struct Choice {
 
 impl LinuxCommandAssistant {
     fn new(config: Config) -> Result<Self> {
-        let client = ClientBuilder::new()
+         let client = Client::builder()
             .min_tls_version(Version::TLS_1_3)
+            .use_rustls_tls()
             .build()
             .context("Failed to build HTTP client")?;
+        
         let context = vec![Message {
             role: "system".to_string(),
             content: config.system_prompt.clone(),
