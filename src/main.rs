@@ -82,13 +82,13 @@ impl LinuxCommandAssistant {
         println!("Entering get_ai_response function");
         
         // 可选：DNS 解析
-        /*
+        
         let resolver = AsyncResolver::tokio_from_system_conf().await?;
         let start = Instant::now();
         println!("Resolving DNS for {}", self.config.openai.api_base);
         let ips = resolver.lookup_ip(self.config.openai.api_base.clone()).await?;
         println!("DNS resolved in {:?}. IPs: {:?}", start.elapsed(), ips.iter().collect::<Vec<_>>());
-        */
+        
 
         let mut messages = self.context.clone();
         if messages.is_empty() {
