@@ -65,8 +65,10 @@ struct Choice {
 impl LinuxCommandAssistant {
     fn new(config: Config) -> Result<Self> {
          let client = Client::builder()
-            .min_tls_version(Version::TLS_1_3)
+            //.min_tls_version(Version::TLS_1_3)
             .use_rustls_tls()
+             ///
+            .tls_built_in_root_certs(true)
             .build()
             .context("Failed to build HTTP client")?;
         
