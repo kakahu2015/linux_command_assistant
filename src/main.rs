@@ -86,84 +86,84 @@ impl LinuxCommandAssistant {
 
     /////////////////////////////
 async fn get_ai_response(&mut self, prompt: &str) -> Result<String> {
-        println!("Entering get_ai_response function");
-        
-        let mut messages = self.context.clone();
-        if messages.is_empty() {
-            println!("Context is empty, adding system prompt");
-            messages.push(Message {
-                role: "system".to_string(),
-                content: self.config.system_prompt.clone(),
-            });
-        }
-        
-        if !self.recent_interactions.is_empty() {
-            println!("Adding recent interactions to context");
-            let recent_history = self.recent_interactions.iter().cloned().collect::<Vec<_>>().join("\n");
-            messages.push(Message {
-                role: "user".to_string(),
-                content: format!("Recent interactions:\n{}\nPlease consider this context for the following question about Linux commands.", recent_history),
-            });
-        }
-        
+    // println!("Entering get_ai_response function");
+    
+    let mut messages = self.context.clone();
+    if messages.is_empty() {
+        // println!("Context is empty, adding system prompt");
+        messages.push(Message {
+            role: "system".to_string(),
+            content: self.config.system_prompt.clone(),
+        });
+    }
+    
+    if !self.recent_interactions.is_empty() {
+        // println!("Adding recent interactions to context");
+        let recent_history = self.recent_interactions.iter().cloned().collect::<Vec<_>>().join("\n");
         messages.push(Message {
             role: "user".to_string(),
-            content: prompt.to_string(),
+            content: format!("Recent interactions:\n{}\nPlease consider this context for the following question about Linux commands.", recent_history),
         });
+    }
+    
+    messages.push(Message {
+        role: "user".to_string(),
+        content: prompt.to_string(),
+    });
 
-        println!("Preparing request payload");
-        let request = serde_json::json!({
-            "model": self.config.openai.model,
-            "messages": messages,
-        });
+    // println!("Preparing request payload");
+    let request = serde_json::json!({
+        "model": self.config.openai.model,
+        "messages": messages,
+    });
 
-        println!("Setting up headers");
-        let mut headers = HeaderMap::new();
-        headers.insert(AUTHORIZATION, HeaderValue::from_str(&format!("Bearer {}", self.config.openai.api_key))
-            .context("Failed to create Authorization header")?);
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+    // println!("Setting up headers");
+    let mut headers = HeaderMap::new();
+    headers.insert(AUTHORIZATION, HeaderValue::from_str(&format!("Bearer {}", self.config.openai.api_key))
+        .context("Failed to create Authorization header")?);
+    headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
 
-        println!("Sending request to OpenAI API: {}", self.config.openai.api_base);
-        let start = Instant::now();
-        let response = self.client.post(&self.config.openai.api_base)
-            .headers(headers)
-            .json(&request)
-            .send()
-            .await;
+    // println!("Sending request to OpenAI API: {}", self.config.openai.api_base);
+    let start = Instant::now();
+    let response = self.client.post(&self.config.openai.api_base)
+        .headers(headers)
+        .json(&request)
+        .send()
+        .await;
 
-        match response {
-            Ok(resp) => {
-                println!("Request completed in {:?}", start.elapsed());
-                let status = resp.status();
-                println!("Response status: {}", status);
-                println!("Response headers: {:?}", resp.headers());
+    match response {
+        Ok(resp) => {
+            // println!("Request completed in {:?}", start.elapsed());
+            let status = resp.status();
+            // println!("Response status: {}", status);
+            // println!("Response headers: {:?}", resp.headers());
 
-                let body = resp.text().await.context("Failed to read response body")?;
-                println!("Response body: {}", body);
+            let body = resp.text().await.context("Failed to read response body")?;
+            // println!("Response body: {}", body);
 
-                if status.is_success() {
-                    let response: serde_json::Value = serde_json::from_str(&body)
-                        .context("Failed to parse API response")?;
-                    
-                    if let Some(content) = response["choices"][0]["message"]["content"].as_str() {
-                        Ok(content.to_string())
-                    } else {
-                        Err(anyhow::anyhow!("No response content from AI"))
-                    }
+            if status.is_success() {
+                let response: serde_json::Value = serde_json::from_str(&body)
+                    .context("Failed to parse API response")?;
+                
+                if let Some(content) = response["choices"][0]["message"]["content"].as_str() {
+                    Ok(content.to_string())
                 } else {
-                    Err(anyhow::anyhow!("API request failed with status {}: {}", status, body))
+                    Err(anyhow::anyhow!("No response content from AI"))
                 }
-            },
-            Err(e) => {
-                println!("Request failed after {:?}", start.elapsed());
-                println!("Error details: {:?}", e);
-                if let Some(url) = e.url() {
-                    println!("Failed URL: {}", url);
-                }
-                Err(anyhow::anyhow!("Failed to send request: {}", e))
+            } else {
+                Err(anyhow::anyhow!("API request failed with status {}: {}", status, body))
             }
+        },
+        Err(e) => {
+            // println!("Request failed after {:?}", start.elapsed());
+            // println!("Error details: {:?}", e);
+            if let Some(url) = e.url() {
+                // println!("Failed URL: {}", url);
+            }
+            Err(anyhow::anyhow!("Failed to send request: {}", e))
         }
     }
+}
     /////////////////////////////////////////////////////////////
 
     fn execute_command(&self, command: &str) -> Result<String> {
