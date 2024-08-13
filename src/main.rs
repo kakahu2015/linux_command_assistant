@@ -166,7 +166,7 @@ async fn get_ai_response(&mut self, prompt: &str) -> Result<String> {
 }
     /////////////////////////////////////////////////////////////
 
-    fn execute_command(&self, command: &str) -> Result<String> {
+    /*fn execute_command(&self, command: &str) -> Result<String> {
         let output = Command::new("sh")
             .arg("-c")
             .arg(command)
@@ -178,7 +178,32 @@ async fn get_ai_response(&mut self, prompt: &str) -> Result<String> {
         } else {
             Ok(String::from_utf8_lossy(&output.stderr).to_string())
         }
+    }*/
+
+    fn execute_command(&self, command: &str) -> Result<String> {
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(command)
+        .output()
+        .context("Failed to execute command")?;
+    
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    
+    if output.status.success() {
+        if stdout.is_empty() {
+            Ok(stderr)
+        } else {
+            Ok(stdout)
+        }
+    } else {
+        if stderr.is_empty() {
+            Ok(stdout)
+        } else {
+            Ok(stderr)
+        }
     }
+}
 
     fn update_context(&mut self, user_input: &str, response: &str) {
         self.context.push(Message {
