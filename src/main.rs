@@ -12,7 +12,8 @@ mod completer;
 use completer::LinuxCommandCompleter;
 use rustyline::error::ReadlineError;
 use std::time::Instant;
-
+use std::env;
+use std::path::PathBuf;
 
 const YELLOW: &str = "\x1b[33m";
 const RESET: &str = "\x1b[0m";
@@ -303,13 +304,30 @@ async fn run(&mut self) -> Result<()> {
     ////////////////////////////////////////////////
 }
 
-fn load_config() -> Result<Config> {
+/*fn load_config() -> Result<Config> {
     let config_str = std::fs::read_to_string("config.yml")
         .context("Failed to read config.yml")?;
     let config: Config = serde_yaml::from_str(&config_str)
         .context("Failed to parse config.yml")?;
     Ok(config)
+}*/
+fn load_config() -> Result<Config> {
+    // 新增: 获取可执行文件路径
+    let exe_path = env::current_exe().context("Failed to get executable path")?;
+    // 新增: 获取可执行文件所在目录
+    let exe_dir = exe_path.parent().context("Failed to get executable directory")?;
+    // 新增: 构建配置文件的完整路径
+    let config_path = exe_dir.join("config.yml");
+
+    // 修改: 使用新的配置文件路径
+    let config_str = std::fs::read_to_string(&config_path)
+        .context("Failed to read config.yml")?;
+    // 不变: 解析配置文件的逻辑保持不变
+    let config: Config = serde_yaml::from_str(&config_str)
+        .context("Failed to parse config.yml")?;
+    Ok(config)
 }
+
 
 #[tokio::main]
 async fn main() -> Result<()> {
