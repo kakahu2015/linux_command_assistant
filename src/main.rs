@@ -209,7 +209,7 @@ fn execute_command(&self, command: &str) -> Result<String> {
             Ok(stderr)
         } else {
             if command.trim() == "ls -l" {
-                Ok(colorize_ls_output(&stdout))
+                Ok(self.colorize_ls_output(&stdout))
             } else {
                 Ok(stdout)
             }
