@@ -207,7 +207,8 @@ fn colorize_ls_output(&self, output: &str) -> String {
             if stdout.is_empty() {
                 Ok(stderr)
             } else {
-                if command.trim() == "ls -l" {
+                //if command.trim() == "ls -l" {
+                if command.trim().starts_with("ls") && command.contains("-l") {
                     Ok(self.colorize_ls_output(&stdout))
                 } else {
                     Ok(stdout)
