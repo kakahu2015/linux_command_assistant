@@ -170,7 +170,30 @@ async fn get_ai_response(&mut self, prompt: &str) -> Result<String> {
     }
 }
     /////////////////////////////////////////////////////////////
+fn colorize_ls_output(output: &str) -> String {
+    output.lines().map(|line| {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() >= 9 {
+            let permissions = parts[0];
+            let filename = parts[8..].join(" ");
+            let colored_filename = if permissions.starts_with('d') {
+                format!("{}{}{}", BLUE, filename, RESET)
+            } else if permissions.contains('x') {
+                format!("{}{}{}", GREEN, filename, RESET)
+            } else {
+                format!("{}{}{}", RED, filename, RESET)
+            };
+            let mut colored_line = parts[..8].join(" ");
+            colored_line.push_str(" ");
+            colored_line.push_str(&colored_filename);
+            colored_line
+        } else {
+            line.to_string()
+        }
+    }).collect::<Vec<String>>().join("\n")
+}
 
+    
 fn execute_command(&self, command: &str) -> Result<String> {
     let output = Command::new("sh")
         .arg("-c")
@@ -198,29 +221,6 @@ fn execute_command(&self, command: &str) -> Result<String> {
             Ok(stderr)
         }
     }
-}
-
-fn colorize_ls_output(output: &str) -> String {
-    output.lines().map(|line| {
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() >= 9 {
-            let permissions = parts[0];
-            let filename = parts[8..].join(" ");
-            let colored_filename = if permissions.starts_with('d') {
-                format!("{}{}{}", BLUE, filename, RESET)
-            } else if permissions.contains('x') {
-                format!("{}{}{}", GREEN, filename, RESET)
-            } else {
-                format!("{}{}{}", RED, filename, RESET)
-            };
-            let mut colored_line = parts[..8].join(" ");
-            colored_line.push_str(" ");
-            colored_line.push_str(&colored_filename);
-            colored_line
-        } else {
-            line.to_string()
-        }
-    }).collect::<Vec<String>>().join("\n")
 }
 
     /*fn execute_command(&self, command: &str) -> Result<String> {
