@@ -17,6 +17,10 @@ use std::path::PathBuf;
 
 const YELLOW: &str = "\x1b[33m";
 const RESET: &str = "\x1b[0m";
+// 添加新的常量
+const BLUE: &str = "\x1b[34m";
+const GREEN: &str = "\x1b[32m";
+const RED: &str = "\x1b[31m";
 
 #[derive(Debug, Deserialize)]
 struct Config {
@@ -167,21 +171,59 @@ async fn get_ai_response(&mut self, prompt: &str) -> Result<String> {
 }
     /////////////////////////////////////////////////////////////
 
-    /*fn execute_command(&self, command: &str) -> Result<String> {
-        let output = Command::new("sh")
-            .arg("-c")
-            .arg(command)
-            .output()
-            .context("Failed to execute command")?;
-        
-        if output.status.success() {
-            Ok(String::from_utf8_lossy(&output.stdout).to_string())
+fn execute_command(&self, command: &str) -> Result<String> {
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(command)
+        .output()
+        .context("Failed to execute command")?;
+    
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    
+    if output.status.success() {
+        if stdout.is_empty() {
+            Ok(stderr)
         } else {
-            Ok(String::from_utf8_lossy(&output.stderr).to_string())
+            if command.trim() == "ls -l" {
+                Ok(colorize_ls_output(&stdout))
+            } else {
+                Ok(stdout)
+            }
         }
-    }*/
+    } else {
+        if stderr.is_empty() {
+            Ok(stdout)
+        } else {
+            Ok(stderr)
+        }
+    }
+}
 
-    fn execute_command(&self, command: &str) -> Result<String> {
+fn colorize_ls_output(output: &str) -> String {
+    output.lines().map(|line| {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() >= 9 {
+            let permissions = parts[0];
+            let filename = parts[8..].join(" ");
+            let colored_filename = if permissions.starts_with('d') {
+                format!("{}{}{}", BLUE, filename, RESET)
+            } else if permissions.contains('x') {
+                format!("{}{}{}", GREEN, filename, RESET)
+            } else {
+                format!("{}{}{}", RED, filename, RESET)
+            };
+            let mut colored_line = parts[..8].join(" ");
+            colored_line.push_str(" ");
+            colored_line.push_str(&colored_filename);
+            colored_line
+        } else {
+            line.to_string()
+        }
+    }).collect::<Vec<String>>().join("\n")
+}
+
+    /*fn execute_command(&self, command: &str) -> Result<String> {
     let output = Command::new("sh")
         .arg("-c")
         .arg(command)
@@ -204,7 +246,7 @@ async fn get_ai_response(&mut self, prompt: &str) -> Result<String> {
             Ok(stderr)
         }
     }
-}
+}*/
 
     fn update_context(&mut self, user_input: &str, response: &str) {
         self.context.push(Message {
