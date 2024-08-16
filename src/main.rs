@@ -144,8 +144,8 @@ async fn get_ai_response(&mut self, prompt: &str) -> Result<String> {
         Err(anyhow::anyhow!("API request failed with status {}", response.status()))
     }
 }
-
-fn execute_command(&self, command: &str) -> Result<String> {
+/////////////////////////////////////////////
+fn execute_command(&mut self, command: &str) -> Result<String> {
     let output = Command::new("sh")
         .arg("-c")
         .arg(command)
@@ -173,12 +173,11 @@ fn execute_command(&self, command: &str) -> Result<String> {
         }
     };
 
-    // 更新这一行
     self.add_to_recent_interactions(format!("Executed command: {}\nOutput: {}", command, result));
 
     Ok(result)
 }
-
+////////////////////////////
     fn colorize_ls_output(&self, output: &str) -> String {
         output.lines().map(|line| {
             let parts: Vec<&str> = line.split_whitespace().collect();
@@ -226,96 +225,96 @@ fn execute_command(&self, command: &str) -> Result<String> {
     fn add_to_history(&mut self, command: String) {
         self.command_history.push(command);
     }
+///////////////////////////////////////////////////////////
+async fn run(&mut self) -> Result<()> {
+    let config = RustylineConfig::builder()
+        .history_ignore_space(true)
+        .completion_type(rustyline::CompletionType::List)
+        .build();
+    let mut rl = Editor::with_config(config)?;
+    rl.set_helper(Some(LinuxCommandCompleter));
 
-    async fn run(&mut self) -> Result<()> {
-        let config = RustylineConfig::builder()
-            .history_ignore_space(true)
-            .completion_type(rustyline::CompletionType::List)
-            .build();
-        let mut rl = Editor::with_config(config)?;
-        rl.set_helper(Some(LinuxCommandCompleter));
+    loop {
+        let prompt = if self.is_command_mode { 
+            format!("{}$ {}", BLUE, RESET) 
+        } else { 
+            format!("{}kaka-ai> {}", YELLOW, RESET) 
+        };
+        let readline = rl.readline(&prompt);
 
-        loop {
-            let prompt = if self.is_command_mode { 
-                format!("{}$ {}", BLUE, RESET) 
-            } else { 
-                format!("{}kaka-ai> {}", YELLOW, RESET) 
-            };
-            let readline = rl.readline(&prompt);
+        match readline {
+            Ok(line) => {
+                let line = line.trim();
+                if line.eq_ignore_ascii_case("exit") {
+                    break;
+                }
 
-            match readline {
-                Ok(line) => {
-                    let line = line.trim();
-                    if line.eq_ignore_ascii_case("exit") {
-                        break;
-                    }
+                if line.eq_ignore_ascii_case("reset") {
+                    self.context.clear();
+                    self.recent_interactions.clear();
+                    println!("Context and recent interactions have been reset.");
+                    continue;
+                }
 
-                    if line.eq_ignore_ascii_case("reset") {
-                        self.context.clear();
-                        self.recent_interactions.clear();
-                        println!("Context and recent interactions have been reset.");
-                        continue;
-                    }
+                if !line.is_empty() && !line.starts_with('#') {
+                    self.add_to_history(line.to_string());
+                    rl.add_history_entry(line);
+                }
 
-                    if !line.is_empty() && !line.starts_with('#') {
-                        self.add_to_history(line.to_string());
-                        rl.add_history_entry(line);
-                    }
-
-                    if line == "!" {
-                        self.is_command_mode = !self.is_command_mode;
-                        if self.is_command_mode {
-                            println!("Entered Linux command mode. Type 'quit' to exit.");
-                        } else {
-                            println!("Exited Linux command mode.");
-                        }
-                        continue;
-                    }
-
+                if line == "!" {
+                    self.is_command_mode = !self.is_command_mode;
                     if self.is_command_mode {
-                        if line == "quit" {
-                            self.is_command_mode = false;
-                            println!("Exited Linux command mode.");
-                            continue;
-                        }
-
-                        match self.execute_command(line) {
-                            Ok(output) => {
-                                println!("{}", output);
-                                let interaction = format!("Executed command: {}\nOutput: {}", line, output);
-                                self.add_to_recent_interactions(interaction.clone());
-                                self.update_context(&interaction, "");
-                            }
-                            Err(e) => println!("Error executing command: {}", e),
-                        }
+                        println!("Entered Linux command mode. Type 'quit' to exit.");
                     } else {
-                        match self.get_ai_response(line).await {
-                            Ok(response) => {
-                                println!("kaka-AI: {}", response);
-                                self.update_context(line, &response);
-                                self.add_to_recent_interactions(format!("User: {}\nAI: {}", line, response));
-                            }
-                            Err(e) => println!("Error getting AI response: {}", e),
-                        }
+                        println!("Exited Linux command mode.");
                     }
+                    continue;
                 }
-                Err(ReadlineError::Interrupted) => {
-                    println!("CTRL-C");
-                    break;
-                }
-                Err(ReadlineError::Eof) => {
-                    println!("CTRL-D");
-                    break;
-                }
-                Err(err) => {
-                    println!("Error: {:?}", err);
-                    break;
+
+                if self.is_command_mode {
+                    if line == "quit" {
+                        self.is_command_mode = false;
+                        println!("Exited Linux command mode.");
+                        continue;
+                    }
+
+                    match self.execute_command(line) {
+                        Ok(output) => {
+                            println!("{}", output);
+                            // execute_command 已经添加了交互记录，所以这里不需要重复添加
+                            self.update_context(&format!("Executed command: {}\nOutput: {}", line, output), "");
+                        }
+                        Err(e) => println!("Error executing command: {}", e),
+                    }
+                } else {
+                    match self.get_ai_response(line).await {
+                        Ok(response) => {
+                            println!("kaka-AI: {}", response);
+                            self.update_context(line, &response);
+                            self.add_to_recent_interactions(format!("User: {}\nAI: {}", line, response));
+                        }
+                        Err(e) => println!("Error getting AI response: {}", e),
+                    }
                 }
             }
+            Err(ReadlineError::Interrupted) => {
+                println!("CTRL-C");
+                break;
+            }
+            Err(ReadlineError::Eof) => {
+                println!("CTRL-D");
+                break;
+            }
+            Err(err) => {
+                println!("Error: {:?}", err);
+                break;
+            }
         }
-
-        Ok(())
     }
+
+    Ok(())
+}
+    /////////////////////////////
 }
 
 fn load_config() -> Result<Config> {
