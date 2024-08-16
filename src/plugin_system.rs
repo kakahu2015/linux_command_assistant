@@ -35,3 +35,27 @@ pub struct PluginCall {
     pub name: String,
     pub args: Vec<String>,
 }
+
+
+// 在 plugin_system.rs 文件末尾添加
+
+pub struct WeatherPlugin;
+
+impl Plugin for WeatherPlugin {
+    fn name(&self) -> &str {
+        "weather"
+    }
+
+    fn description(&self) -> &str {
+        "Get current weather information for a city"
+    }
+
+    fn execute(&self, args: &[String]) -> Result<String, Box<dyn Error>> {
+        if args.is_empty() {
+            return Err("Please provide a city name".into());
+        }
+        let city = &args[0];
+        // 这里应该是实际的天气API调用，为了示例，我们只返回一个模拟的结果
+        Ok(format!("The weather in {} is sunny and 25°C", city))
+    }
+}
