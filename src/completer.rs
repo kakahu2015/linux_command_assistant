@@ -11,63 +11,57 @@ pub struct LinuxCommandCompleter;
 
 impl Completer for LinuxCommandCompleter {
     type Candidate = Pair;
-
+////////////////////////////////////////////////////
 fn complete(
-        &self,
-        line: &str,
-        pos: usize,
-        _ctx: &Context<'_>,
-    ) -> rustyline::Result<(usize, Vec<Pair>)> {
-        let (start, word) = extract_word(line, pos);
-        let mut completions = Vec::new();
+    &self,
+    line: &str,
+    pos: usize,
+    _ctx: &Context<'_>,
+) -> rustyline::Result<(usize, Vec<Pair>)> {
+    let (start, word) = extract_word(line, pos);
+    let mut completions = Vec::new();
 
-        if line.starts_with('!') {
-            let command = &line[1..];
-            let parts: Vec<&str> = command.split_whitespace().collect();
-            
-            if parts.is_empty() {
-                complete_commands(&mut completions);
-            } else if parts[0] == "cd" && parts.len() <= 2 {
-                let path = parts.get(1).map(|s| *s).unwrap_or("");
-                complete_path(path, true, &mut completions);
-            } else {
-                let path = parts.last().unwrap_or(&"");
-                complete_path(path, false, &mut completions);
-            }
-        } else {
-            // 非命令模式下，只进行路径补全
-            complete_path(line, false, &mut completions);
-        }
-
-        // 如果只有一个补全选项，直接返回
-        if completions.len() == 1 {
-            return Ok((start, completions));
-        }
-
-        // 如果有多个选项，找出共同前缀
-        if let Some(common_prefix) = find_common_prefix(&completions) {
-            if common_prefix.len() > word.len() {
-                // 如果共同前缀比当前单词长，返回共同前缀
-                return Ok((start, vec![Pair {
-                    display: common_prefix.clone(),
-                    replacement: common_prefix,
-                }]));
-            }
-        }
-
-        // 如果有多个选项且没有更长的共同前缀，显示所有可能性
-        if completions.len() > 1 {
-            println!("\nDisplay all {} possibilities? (y or n)", completions.len());
-            // 这里需要实现用户输入 y/n 的逻辑，暂时默认显示
-            for completion in &completions {
-                println!("{}", completion.display);
-            }
-            println!(); // 打印一个空行
-        }
-
-        Ok((start, completions))
+    let parts: Vec<&str> = line.split_whitespace().collect();
+    
+    if parts.is_empty() {
+        complete_commands(&mut completions);
+    } else if parts[0] == "cd" && parts.len() <= 2 {
+        let path = parts.get(1).map(|s| *s).unwrap_or("");
+        complete_path(path, true, &mut completions);
+    } else {
+        let path = parts.last().unwrap_or(&"");
+        complete_path(path, false, &mut completions);
     }
-    //////////////////////////////////////////////
+
+    // 如果只有一个补全选项，直接返回
+    if completions.len() == 1 {
+        return Ok((start, completions));
+    }
+
+    // 如果有多个选项，找出共同前缀
+    if let Some(common_prefix) = find_common_prefix(&completions) {
+        if common_prefix.len() > word.len() {
+            // 如果共同前缀比当前单词长，返回共同前缀
+            return Ok((start, vec![Pair {
+                display: common_prefix.clone(),
+                replacement: common_prefix,
+            }]));
+        }
+    }
+
+    // 如果有多个选项且没有更长的共同前缀，显示所有可能性
+    if completions.len() > 1 {
+        println!("\nDisplay all {} possibilities? (y or n)", completions.len());
+        // 这里需要实现用户输入 y/n 的逻辑，暂时默认显示
+        for completion in &completions {
+            println!("{}", completion.display);
+        }
+        println!(); // 打印一个空行
+    }
+
+    Ok((start, completions))
+}
+   //////////////////////////////////////////////////
 }
 
 fn extract_word(line: &str, pos: usize) -> (usize, &str) {
