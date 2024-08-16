@@ -227,29 +227,36 @@ fn colorize_ls_output(&self, output: &str) -> String {
 
 
 fn update_context(&mut self, user_input: &str, response: &str) {
-    // 清除之前的命令历史
-    self.context.retain(|msg| msg.role != "user" || !msg.content.starts_with("Recent interactions:"));
+        // 清除之前的命令历史
+        self.context.retain(|msg| msg.role != "user" || !msg.content.starts_with("Recent interactions:"));
 
-    // 添加新的交互
-    let recent_history = self.recent_interactions.iter().cloned().collect::<Vec<_>>().join("\n");
-    self.context.push(Message {
-        role: "user".to_string(),
-        content: format!("Recent interactions:\n{}", recent_history),
-    });
-    self.context.push(Message {
-        role: "user".to_string(),
-        content: user_input.to_string(),
-    });
-    self.context.push(Message {
-        role: "assistant".to_string(),
-        content: response.to_string(),
-    });
+        // 添加最近交互历史
+        let recent_history = self.recent_interactions.iter().cloned().collect::<Vec<_>>().join("\n");
+        self.context.push(Message {
+            role: "user".to_string(),
+            content: format!("Recent interactions:\n{}", recent_history),
+        });
 
-    // 保持上下文大小在限制内
-    while self.context.len() > self.config.max_openai_context {
-        self.context.remove(0);
+        // 添加用户输入到上下文
+        self.context.push(Message {
+            role: "user".to_string(),
+            content: user_input.to_string(),
+        });
+
+        // 如果有AI响应，也添加到上下文
+        if !response.is_empty() {
+            self.context.push(Message {
+                role: "assistant".to_string(),
+                content: response.to_string(),
+            });
+        }
+
+        // 保持上下文大小在限制内
+        while self.context.len() > self.config.max_openai_context {
+            self.context.remove(0);
+        }
     }
-}
+
 
     fn add_to_recent_interactions(&mut self, interaction: String) {
         self.recent_interactions.push_back(interaction);
@@ -372,9 +379,18 @@ async fn main() -> Result<()> {
                     break;
                 }
 
+                if !line.is_empty() && !line.starts_with('#') {
+                    assistant.add_to_history(line.to_string());
+                    rl.add_history_entry(line);
+                }
+
                 if line == "!" {
-                    assistant.is_command_mode = true;
-                    println!("Entered Linux command mode. Type 'quit' to exit.");
+                    assistant.is_command_mode = !assistant.is_command_mode;
+                    if assistant.is_command_mode {
+                        println!("Entered Linux command mode. Type 'quit' to exit.");
+                    } else {
+                        println!("Exited Linux command mode.");
+                    }
                     continue;
                 }
 
@@ -386,8 +402,18 @@ async fn main() -> Result<()> {
                     }
 
                     match assistant.execute_command(line) {
-                        Ok(output) => println!("{}", output),
-                        Err(e) => println!("Error executing command: {}", e),
+                        Ok(output) => {
+                            println!("{}", output);
+                            let interaction = format!("Executed command: {}\nOutput: {}", line, output);
+                            assistant.add_to_recent_interactions(interaction.clone());
+                            assistant.update_context(&interaction, "");
+                        }
+                        Err(e) => {
+                            println!("Error executing command: {}", e);
+                            let interaction = format!("Attempted to execute command: {}\nError: {}", line, e);
+                            assistant.add_to_recent_interactions(interaction.clone());
+                            assistant.update_context(&interaction, "");
+                        }
                     }
                 } else {
                     match assistant.get_ai_response(line).await {
@@ -398,11 +424,6 @@ async fn main() -> Result<()> {
                         }
                         Err(e) => println!("Error getting AI response: {}", e),
                     }
-                }
-
-                if !line.is_empty() && !line.starts_with('#') {
-                    assistant.add_to_history(line.to_string());
-                    rl.add_history_entry(line);
                 }
             }
             Err(ReadlineError::Interrupted) => {
