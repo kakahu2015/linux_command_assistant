@@ -12,7 +12,7 @@ pub struct LinuxCommandCompleter;
 impl Completer for LinuxCommandCompleter {
     type Candidate = Pair;
 
-    fn complete(
+fn complete(
         &self,
         line: &str,
         pos: usize,
@@ -35,7 +35,8 @@ impl Completer for LinuxCommandCompleter {
                 complete_path(path, false, &mut completions);
             }
         } else {
-            complete_commands(&mut completions);
+            // 非命令模式下，只进行路径补全
+            complete_path(line, false, &mut completions);
         }
 
         // 如果只有一个补全选项，直接返回
@@ -66,13 +67,14 @@ impl Completer for LinuxCommandCompleter {
 
         Ok((start, completions))
     }
+    //////////////////////////////////////////////
 }
 
 fn extract_word(line: &str, pos: usize) -> (usize, &str) {
     let word_start = line[..pos].rfind(char::is_whitespace).map(|i| i + 1).unwrap_or(0);
     (word_start, &line[word_start..pos])
 }
-
+/////////////////////////////////////////////////////////////////////////////////
 fn complete_path(path: &str, only_directories: bool, completions: &mut Vec<Pair>) {
     let current_dir = env::current_dir().unwrap_or_else(|_| Path::new(".").to_path_buf());
     
@@ -93,16 +95,17 @@ fn complete_path(path: &str, only_directories: bool, completions: &mut Vec<Pair>
             if let Ok(file_name) = entry.file_name().into_string() {
                 if file_name.starts_with(&file_prefix) {
                     if !only_directories || entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+                        let is_dir = entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false);
+                        let display = if is_dir {
+                            format!("{}/", file_name)
+                        } else {
+                            file_name.clone()
+                        };
                         let completion = if path.starts_with('/') {
                             dir.join(&file_name).to_string_lossy().into_owned()
                         } else {
                             Path::new(path).parent().unwrap_or(Path::new(""))
                                 .join(&file_name).to_string_lossy().into_owned()
-                        };
-                        let display = if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
-                            format!("{}/", file_name)
-                        } else {
-                            file_name.clone()
                         };
                         completions.push(Pair {
                             display,
@@ -114,6 +117,8 @@ fn complete_path(path: &str, only_directories: bool, completions: &mut Vec<Pair>
         }
     }
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////
 
 // 修改 complete_commands 函数
 fn complete_commands(completions: &mut Vec<Pair>) {
