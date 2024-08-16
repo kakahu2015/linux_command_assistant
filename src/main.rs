@@ -89,38 +89,95 @@ impl LinuxCommandAssistant {
         })
     }
 
-    async fn get_ai_response(&mut self, prompt: &str) -> Result<String> {
-        // Existing implementation remains unchanged
+async fn get_ai_response(&mut self, prompt: &str) -> Result<String> {
+    let mut messages = self.context.clone();
+    if messages.is_empty() {
+        messages.push(Message {
+            role: "system".to_string(),
+            content: self.config.system_prompt.clone(),
+        });
     }
-
-    fn execute_command(&self, command: &str) -> Result<String> {
-        let output = Command::new("sh")
-            .arg("-c")
-            .arg(command)
-            .output()
-            .context("Failed to execute command")?;
-        
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        
-        if output.status.success() {
-            if stdout.is_empty() {
-                Ok(stderr)
-            } else {
-                if command.trim().starts_with("ls") && command.contains("-l") {
-                    Ok(self.colorize_ls_output(&stdout))
-                } else {
-                    Ok(stdout)
-                }
-            }
-        } else {
-            if stderr.is_empty() {
-                Ok(stdout)
-            } else {
-                Ok(stderr)
-            }
+    
+    // 添加最近的Linux命令历史
+    if !self.recent_interactions.is_empty() {
+        let recent_history = self.recent_interactions.iter()
+            .filter(|interaction| interaction.starts_with("Executed command:"))
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("\n");
+        if !recent_history.is_empty() {
+            messages.push(Message {
+                role: "user".to_string(),
+                content: format!("Recent Linux commands:\n{}\nPlease consider this context for the following question.", recent_history),
+            });
         }
     }
+    
+    messages.push(Message {
+        role: "user".to_string(),
+        content: prompt.to_string(),
+    });
+
+    let request = serde_json::json!({
+        "model": self.config.openai.model,
+        "messages": messages,
+    });
+
+    let mut headers = HeaderMap::new();
+    headers.insert(AUTHORIZATION, HeaderValue::from_str(&format!("Bearer {}", self.config.openai.api_key))?);
+    headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+
+    let response = self.client.post(&self.config.openai.api_base)
+        .headers(headers)
+        .json(&request)
+        .send()
+        .await?;
+
+    if response.status().is_success() {
+        let response: ChatCompletionResponse = response.json().await?;
+        if let Some(choice) = response.choices.first() {
+            Ok(choice.message.content.clone())
+        } else {
+            Err(anyhow::anyhow!("No response content from AI"))
+        }
+    } else {
+        Err(anyhow::anyhow!("API request failed with status {}", response.status()))
+    }
+}
+
+fn execute_command(&self, command: &str) -> Result<String> {
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(command)
+        .output()
+        .context("Failed to execute command")?;
+    
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    
+    let result = if output.status.success() {
+        if stdout.is_empty() {
+            stderr
+        } else {
+            if command.trim().starts_with("ls") && command.contains("-l") {
+                self.colorize_ls_output(&stdout)
+            } else {
+                stdout
+            }
+        }
+    } else {
+        if stderr.is_empty() {
+            stdout
+        } else {
+            stderr
+        }
+    };
+
+    // 更新这一行
+    self.add_to_recent_interactions(format!("Executed command: {}\nOutput: {}", command, result));
+
+    Ok(result)
+}
 
     fn colorize_ls_output(&self, output: &str) -> String {
         output.lines().map(|line| {
