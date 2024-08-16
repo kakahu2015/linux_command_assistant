@@ -15,8 +15,8 @@ use std::time::Instant;
 use std::env;
 use std::path::PathBuf;
 //
-mod plugin_system;
-use plugin_system::{Plugin, PluginManager, PluginCall, WeatherPlugin};
+//mod plugin_system;
+//use plugin_system::{Plugin, PluginManager, PluginCall, WeatherPlugin};
 
 const YELLOW: &str = "\x1b[33m";
 const RESET: &str = "\x1b[0m";
@@ -52,7 +52,7 @@ struct LinuxCommandAssistant {
     recent_interactions: VecDeque<String>,
     command_history: Vec<String>,
     is_command_mode: bool,
-    plugin_manager: PluginManager,
+    //plugin_manager: PluginManager,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -74,8 +74,8 @@ struct Choice {
 impl LinuxCommandAssistant {
     fn new(config: Config) -> Result<Self> {
         //
-        let mut plugin_manager = PluginManager::new();
-        plugin_manager.register_plugin(Box::new(WeatherPlugin));
+        //let mut plugin_manager = PluginManager::new();
+        //plugin_manager.register_plugin(Box::new(WeatherPlugin));
         ////////////////////////////////////////////
          let client = Client::builder()
             .use_rustls_tls()
@@ -94,7 +94,7 @@ impl LinuxCommandAssistant {
             recent_interactions: VecDeque::with_capacity(max_recent_interactions),
             command_history: Vec::new(),
             is_command_mode: false,
-            plugin_manager,
+            //plugin_manager,
         })
     }
 
