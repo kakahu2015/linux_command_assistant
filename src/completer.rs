@@ -95,17 +95,16 @@ fn complete_path(path: &str, only_directories: bool, completions: &mut Vec<Pair>
             if let Ok(file_name) = entry.file_name().into_string() {
                 if file_name.starts_with(&file_prefix) {
                     if !only_directories || entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
-                        let is_dir = entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false);
-                        let display = if is_dir {
-                            format!("{}/", file_name)
-                        } else {
-                            file_name.clone()
-                        };
                         let completion = if path.starts_with('/') {
                             dir.join(&file_name).to_string_lossy().into_owned()
                         } else {
                             Path::new(path).parent().unwrap_or(Path::new(""))
                                 .join(&file_name).to_string_lossy().into_owned()
+                        };
+                        let display = if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+                            format!("{}/", file_name)
+                        } else {
+                            file_name.clone()
                         };
                         completions.push(Pair {
                             display,
@@ -117,7 +116,6 @@ fn complete_path(path: &str, only_directories: bool, completions: &mut Vec<Pair>
         }
     }
 }
-
 /////////////////////////////////////////////////////////////////////////////////////////
 
 // 修改 complete_commands 函数
