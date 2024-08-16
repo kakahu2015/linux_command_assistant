@@ -49,6 +49,7 @@ struct LinuxCommandAssistant {
     context: Vec<Message>,
     recent_interactions: VecDeque<String>,
     command_history: Vec<String>,
+    is_command_mode: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -86,6 +87,7 @@ impl LinuxCommandAssistant {
             context,
             recent_interactions: VecDeque::with_capacity(max_recent_interactions),
             command_history: Vec::new(),
+            is_command_mode: false,
         })
     }
 
@@ -224,45 +226,30 @@ fn colorize_ls_output(&self, output: &str) -> String {
     }
 
 
-    /*fn execute_command(&self, command: &str) -> Result<String> {
-    let output = Command::new("sh")
-        .arg("-c")
-        .arg(command)
-        .output()
-        .context("Failed to execute command")?;
-    
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-    
-    if output.status.success() {
-        if stdout.is_empty() {
-            Ok(stderr)
-        } else {
-            Ok(stdout)
-        }
-    } else {
-        if stderr.is_empty() {
-            Ok(stdout)
-        } else {
-            Ok(stderr)
-        }
-    }
-}*/
+fn update_context(&mut self, user_input: &str, response: &str) {
+    // 清除之前的命令历史
+    self.context.retain(|msg| msg.role != "user" || !msg.content.starts_with("Recent interactions:"));
 
-    fn update_context(&mut self, user_input: &str, response: &str) {
-        self.context.push(Message {
-            role: "user".to_string(),
-            content: user_input.to_string(),
-        });
-        self.context.push(Message {
-            role: "assistant".to_string(),
-            content: response.to_string(),
-        });
-         // 只保留最新的 max_openai_context 条消息
-      if self.context.len() > self.config.max_openai_context {
-          self.context = self.context.split_off(self.context.len() - self.config.max_openai_context);
-      }
+    // 添加新的交互
+    let recent_history = self.recent_interactions.iter().cloned().collect::<Vec<_>>().join("\n");
+    self.context.push(Message {
+        role: "user".to_string(),
+        content: format!("Recent interactions:\n{}", recent_history),
+    });
+    self.context.push(Message {
+        role: "user".to_string(),
+        content: user_input.to_string(),
+    });
+    self.context.push(Message {
+        role: "assistant".to_string(),
+        content: response.to_string(),
+    });
+
+    // 保持上下文大小在限制内
+    while self.context.len() > self.config.max_openai_context {
+        self.context.remove(0);
     }
+}
 
     fn add_to_recent_interactions(&mut self, interaction: String) {
         self.recent_interactions.push_back(interaction);
@@ -347,13 +334,6 @@ async fn run(&mut self) -> Result<()> {
     ////////////////////////////////////////////////
 }
 
-/*fn load_config() -> Result<Config> {
-    let config_str = std::fs::read_to_string("config.yml")
-        .context("Failed to read config.yml")?;
-    let config: Config = serde_yaml::from_str(&config_str)
-        .context("Failed to parse config.yml")?;
-    Ok(config)
-}*/
 fn load_config() -> Result<Config> {
     // 新增: 获取可执行文件路径
     let exe_path = env::current_exe().context("Failed to get executable path")?;
@@ -376,5 +356,69 @@ fn load_config() -> Result<Config> {
 async fn main() -> Result<()> {
     let config = load_config()?;
     let mut assistant = LinuxCommandAssistant::new(config)?;
-    assistant.run().await
+
+    let mut rl = Editor::<LinuxCommandCompleter>::new()?;
+    rl.set_helper(Some(LinuxCommandCompleter));
+
+    loop {
+        let prompt = if assistant.is_command_mode { "$ " } else { "kaka-ai> " };
+        let readline = rl.readline(&format!("{}{}{}", YELLOW, prompt, RESET));
+
+        match readline {
+            Ok(line) => {
+                let line = line.trim();
+
+                if line.eq_ignore_ascii_case("exit") {
+                    break;
+                }
+
+                if line == "!" {
+                    assistant.is_command_mode = true;
+                    println!("Entered Linux command mode. Type 'quit' to exit.");
+                    continue;
+                }
+
+                if assistant.is_command_mode {
+                    if line == "quit" {
+                        assistant.is_command_mode = false;
+                        println!("Exited Linux command mode.");
+                        continue;
+                    }
+
+                    match assistant.execute_command(line) {
+                        Ok(output) => println!("{}", output),
+                        Err(e) => println!("Error executing command: {}", e),
+                    }
+                } else {
+                    match assistant.get_ai_response(line).await {
+                        Ok(response) => {
+                            println!("kaka-AI: {}", response);
+                            assistant.update_context(line, &response);
+                            assistant.add_to_recent_interactions(format!("User: {}\nAI: {}", line, response));
+                        }
+                        Err(e) => println!("Error getting AI response: {}", e),
+                    }
+                }
+
+                if !line.is_empty() && !line.starts_with('#') {
+                    assistant.add_to_history(line.to_string());
+                    rl.add_history_entry(line);
+                }
+            }
+            Err(ReadlineError::Interrupted) => {
+                println!("CTRL-C");
+                break;
+            }
+            Err(ReadlineError::Eof) => {
+                println!("CTRL-D");
+                break;
+            }
+            Err(err) => {
+                println!("Error: {:?}", err);
+                break;
+            }
+        }
+    }
+
+    Ok(())
 }
