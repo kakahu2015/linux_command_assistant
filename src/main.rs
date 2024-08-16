@@ -264,7 +264,7 @@ async fn run(&mut self) -> Result<()> {
                 if line == "!" {
                     self.is_command_mode = !self.is_command_mode;
                     if self.is_command_mode {
-                        println!("Entered Linux command mode. Type 'quit' to exit.");
+                        println!("Entered Linux command mode. Type '!' to exit.");
                     } else {
                         println!("Exited Linux command mode.");
                     }
@@ -272,16 +272,9 @@ async fn run(&mut self) -> Result<()> {
                 }
 
                 if self.is_command_mode {
-                    if line == "quit" {
-                        self.is_command_mode = false;
-                        println!("Exited Linux command mode.");
-                        continue;
-                    }
-
                     match self.execute_command(line) {
                         Ok(output) => {
                             println!("{}", output);
-                            // execute_command 已经添加了交互记录，所以这里不需要重复添加
                             self.update_context(&format!("Executed command: {}\nOutput: {}", line, output), "");
                         }
                         Err(e) => println!("Error executing command: {}", e),
