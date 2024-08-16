@@ -16,7 +16,7 @@ use std::env;
 use std::path::PathBuf;
 //
 mod plugin_system;
-use plugin_system::{Plugin, PluginManager, PluginCall};
+use plugin_system::{Plugin, PluginManager, PluginCall, WeatherPlugin};
 
 const YELLOW: &str = "\x1b[33m";
 const RESET: &str = "\x1b[0m";
